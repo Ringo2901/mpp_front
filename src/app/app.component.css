@@ -1,0 +1,8 @@
+.navbar-nav {
+  display: flex;
+  align-items: center;
+}
+
+.nav-item + .nav-item {
+  margin-left: 1rem;
+}
