@@ -81,8 +81,8 @@ export class TodoComponent implements OnInit {
 
       if (file) {
         try {
-          const uint8Array = await this.convertFileToUint8Array(file);
-          formData.file = uint8Array ? uint8Array.toString() : '';
+          const base64File = await this.convertFileToBase64(file);
+          formData.file = base64File || '';
         } catch (error) {
           this.showErrorMessage('Ошибка при чтении файла.');
           return;
@@ -101,7 +101,8 @@ export class TodoComponent implements OnInit {
   }
 
 
-  convertFileToUint8Array(file: File | null): Promise<Uint8Array | null> {
+
+  convertFileToBase64(file: File | null): Promise<string | null> {
     return new Promise((resolve, reject) => {
       if (!file) {
         resolve(null);
@@ -109,20 +110,13 @@ export class TodoComponent implements OnInit {
       }
 
       const reader = new FileReader();
-
-      reader.onload = (event: ProgressEvent<FileReader>) => {
-        if (event.target?.result instanceof ArrayBuffer) {
-          resolve(new Uint8Array(event.target.result));
-        } else {
-          reject(new Error('Failed to read file as ArrayBuffer'));
-        }
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
       };
 
-      reader.onerror = (error) => {
-        reject(error);
-      };
-
-      reader.readAsArrayBuffer(file);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
     });
   }
 
@@ -172,18 +166,21 @@ export class TodoComponent implements OnInit {
     return bytes;
   }
   downloadFile(task: Task): void {
-    debugger;
-    let blob = new Blob();
-    if (task.file != null) {
-      blob = new Blob([this.stringToUint8Array(task.file)], {type: 'application/octet-stream'});
+    if (task.file) {
+      const byteCharacters = atob(task.file.toString());
+      const byteNumbers = Array.from(byteCharacters, char => char.charCodeAt(0));
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+
+      const link = document.createElement('a');
+      const url = window.URL.createObjectURL(blob);
+      link.href = url;
+      link.download = task.fileName ? task.fileName : "File";
+      link.click();
+      window.URL.revokeObjectURL(url);
     }
-    const link = document.createElement('a');
-    const url = window.URL.createObjectURL(blob);
-    link.href = url;
-    link.download = task.fileName ? task.fileName:"File";
-    link.click();
-    window.URL.revokeObjectURL(url);
   }
+
 
   onFileChange(event: any): void {
     const file = event.target.files[0];

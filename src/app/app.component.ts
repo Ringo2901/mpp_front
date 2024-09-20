@@ -44,7 +44,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
-    //this.socketService.emit('logout');
+   this.authService.logout();
 
     localStorage.removeItem('username');
     this.router.navigate(['/login']);
