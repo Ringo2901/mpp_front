@@ -64,16 +64,31 @@ export class TodoComponent implements OnInit {
     });
   }
 
-  onSubmit(): void {
+
+
+
+  async onSubmit(): Promise<void> {
     if (this.taskForm.valid) {
-      debugger
-      const formData = {
+      const formData: any = {
         title: this.taskForm.value.title,
         status: this.taskForm.value.status,
         dueDate: this.taskForm.value.dueDate,
-        file: this.taskForm.get('file')?.value ? (this.taskForm.get('file')?.value as File) : null,
-        fileName: this.taskForm.get('file')?.value ? (this.taskForm.get('file')?.value as File).name : null
+        file: '',
+        fileName: this.taskForm.get('file')?.value ? (this.taskForm.get('file')?.value as File).name : undefined
       };
+
+      const file = this.taskForm.get('file')?.value as File;
+
+      if (file) {
+        try {
+          const uint8Array = await this.convertFileToUint8Array(file);
+          formData.file = uint8Array ? uint8Array.toString() : '';
+        } catch (error) {
+          this.showErrorMessage('Ошибка при чтении файла.');
+          return;
+        }
+      }
+
       this.taskService.addTask(formData).subscribe({
         next: () => {
           this.loadTasks();
@@ -83,6 +98,32 @@ export class TodoComponent implements OnInit {
         error: (error) => this.showErrorMessage(error.message)
       });
     }
+  }
+
+
+  convertFileToUint8Array(file: File | null): Promise<Uint8Array | null> {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        resolve(null);
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = (event: ProgressEvent<FileReader>) => {
+        if (event.target?.result instanceof ArrayBuffer) {
+          resolve(new Uint8Array(event.target.result));
+        } else {
+          reject(new Error('Failed to read file as ArrayBuffer'));
+        }
+      };
+
+      reader.onerror = (error) => {
+        reject(error);
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
   }
 
   onEditSubmit(): void {
@@ -126,12 +167,15 @@ export class TodoComponent implements OnInit {
       error: (error) => this.showErrorMessage(error.message)
     });
   }
-
+  stringToUint8Array(str: String): Uint8Array {
+    const bytes = new Uint8Array(str.split('').map(char => char.charCodeAt(0)));
+    return bytes;
+  }
   downloadFile(task: Task): void {
     debugger;
     let blob = new Blob();
     if (task.file != null) {
-      blob = new Blob([task.file], {type: 'application/octet-stream'});
+      blob = new Blob([this.stringToUint8Array(task.file)], {type: 'application/octet-stream'});
     }
     const link = document.createElement('a');
     const url = window.URL.createObjectURL(blob);

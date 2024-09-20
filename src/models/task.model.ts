@@ -3,6 +3,6 @@ export interface Task {
   title: string;
   status: 'pending' | 'complete';
   dueDate: string;
-  file?: Uint8Array;
+  file?: String;
   fileName?: string;
 }

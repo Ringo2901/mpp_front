@@ -1,25 +1,34 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
-import { SocketService } from './socket.service';
+import { catchError, tap, map } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  constructor(private socketService: SocketService, private router: Router) {}
+  private apiUrl = 'http://localhost:3000/';
+
+  constructor(private http: HttpClient, private router: Router) {}
 
   login(username: string, password: string): Observable<any> {
-    this.socketService.emit('login', { username, password });
+    const mutation = `
+      mutation($username: String!, $password: String!) {
+        login(username: $username, password: $password)
+      }
+    `;
 
-    return this.socketService.listen<any>('loginSuccess').pipe(
-      tap(response => {
-        if (response.username) {
-          localStorage.setItem('username', response.username);
+    const variables = { username, password };
+
+    return this.http.post<any>(this.apiUrl, { query: mutation, variables }).pipe(
+      tap((response) => {
+        const token = response.data.login;
+        if (token) {
+          localStorage.setItem('username', username);
         }
       }),
-      catchError(error => {
+      catchError((error) => {
         console.error('Login error:', error);
         return throwError(() => new Error('Login failed. Please try again.'));
       })
@@ -31,10 +40,17 @@ export class AuthService {
   }
 
   register(username: string, password: string): Observable<any> {
-    this.socketService.emit('register', { username, password });
+    const mutation = `
+      mutation($username: String!, $password: String!) {
+        register(username: $username, password: $password)
+      }
+    `;
 
-    return this.socketService.listen<any>('registerSuccess').pipe(
-      catchError(error => {
+    const variables = { username, password };
+
+    return this.http.post<any>(this.apiUrl, { query: mutation, variables }).pipe(
+      map((response) => response.data.register),
+      catchError((error) => {
         console.error('Registration error:', error);
         return throwError(() => new Error('Registration failed. Please try again.'));
       })
@@ -42,8 +58,20 @@ export class AuthService {
   }
 
   logout(): void {
-    this.socketService.emit('logout');
-    localStorage.removeItem('username');
-    this.router.navigate(['/login']);
+    const mutation = `
+      mutation {
+        logout
+      }
+    `;
+
+    this.http.post<any>(this.apiUrl, { query: mutation }).subscribe(
+      () => {
+        localStorage.removeItem('username');
+        this.router.navigate(['/login']);
+      },
+      (error) => {
+        console.error('Logout error:', error);
+      }
+    );
   }
 }
